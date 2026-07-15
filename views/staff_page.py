@@ -7,7 +7,7 @@ import csv
 import io
 import json
 import datetime
-# 💡 大文字の「A4」に修正しました
+# PDF生成用のライブラリをインポート
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -88,11 +88,18 @@ def get_img_html(file_name, emoji, width="100%"):
         return f'<img src="{img_code}" style="width:{width}; aspect-ratio:1/1; object-fit:contain; border-radius:15px; display: block; margin: 0 auto;">'
     return f'<div style="width:{width}; aspect-ratio:1/1; background:#f0f2f6; border-radius:15px; display:flex; align-items:center; justify-content:center; font-size:40px; margin: 0 auto;">{emoji}</div>'
 
+# 💡 HTML特殊文字のエスケープおよび安全な改行変換関数
+def sanitize_for_paragraph(text):
+    if not text:
+        return ""
+    # & や < などの記号を安全な文字に変換したあと、改行コードを <br> に置換
+    escaped = html.escape(str(text))
+    return escaped.replace("\n", "<br>")
+
 # 💡 PDF自動生成ロジック (A4サイズ・日本語フォント対応)
 def generate_pdf(data_row):
     pdfmetrics.registerFont(UnicodeCIDFont('HeiseiKakuGo-W5'))
     buffer = io.BytesIO()
-    # 💡 ここも大文字の A4 に変更しました
     doc = SimpleDocTemplate(
         buffer, pagesize=A4, 
         rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36
@@ -114,8 +121,8 @@ def generate_pdf(data_row):
     # 2. 基本情報テーブル
     info_data = [
         [
-            Paragraph(f"<b>作成日:</b> {data_row.get('report_date', '')}", normal_style),
-            Paragraph(f"<b>作成者:</b> {data_row.get('reporter', '')} 印", normal_style),
+            Paragraph(f"<b>作成日:</b> {sanitize_for_paragraph(data_row.get('report_date', ''))}", normal_style),
+            Paragraph(f"<b>作成者:</b> {sanitize_for_paragraph(data_row.get('reporter', ''))} 印", normal_style),
             Paragraph("<b>チーフ印:</b> ", normal_style)
         ]
     ]
@@ -133,7 +140,7 @@ def generate_pdf(data_row):
     # 3. 情報の種類
     story.append(Paragraph(f"<b>【 情報の種類 】</b>", normal_style))
     story.append(Spacer(1, 5))
-    type_box = Table([[Paragraph(f"<b>{data_row.get('report_type', '')}</b>", normal_style)]], colWidths=[520])
+    type_box = Table([[Paragraph(f"<b>{sanitize_for_paragraph(data_row.get('report_type', ''))}</b>", normal_style)]], colWidths=[520])
     type_box.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.lightyellow),
         ('BOX', (0,0), (-1,-1), 1, colors.orange),
@@ -142,12 +149,12 @@ def generate_pdf(data_row):
     story.append(type_box)
     story.append(Spacer(1, 15))
     
-    # 4. メイン内容
+    # 4. メイン内容 (💡 エラーの原因だった <br> の記述方法を修正・最適化しました)
     main_data = [
-        [Paragraph("<b>お客様名</b>", normal_style), Paragraph(str(data_row.get('customer_name', '')), normal_style)],
-        [Paragraph("<b>顧客コード / <br>シャトルコード</b>", normal_style), Paragraph(str(data_row.get('customer_code', '')), normal_style)],
-        [Paragraph("<b>住所・地図情報</b>", normal_style), Paragraph(str(data_row.get('address', '')).replace('\n', '<br/>'), normal_style)],
-        [Paragraph("<b>具体的な報告・<br>提案内容</b>", normal_style), Paragraph(str(data_row.get('content', '')).replace('\n', '<br/>'), normal_style)]
+        [Paragraph("<b>お客様名</b>", normal_style), Paragraph(sanitize_for_paragraph(data_row.get('customer_name', '')), normal_style)],
+        [Paragraph("<b>顧客コード /<br>シャトルコード</b>", normal_style), Paragraph(sanitize_for_paragraph(data_row.get('customer_code', '')), normal_style)],
+        [Paragraph("<b>住所・地図情報</b>", normal_style), Paragraph(sanitize_for_paragraph(data_row.get('address', '')), normal_style)],
+        [Paragraph("<b>具体的な報告・<br>提案内容</b>", normal_style), Paragraph(sanitize_for_paragraph(data_row.get('content', '')), normal_style)]
     ]
     t_main = Table(main_data, colWidths=[120, 400])
     t_main.setStyle(TableStyle([
@@ -163,8 +170,10 @@ def generate_pdf(data_row):
     # 5. 返信コメント欄
     story.append(Paragraph("<b>◇ 支店・加盟店様 返信コメント欄 ◇</b>", normal_style))
     story.append(Spacer(1, 5))
+    
+    # 💡 パーサーエラー防止のため空行も安全な記法へ変更
     reply_box = Table([
-        [Paragraph("<br/><br/><br/><br/>", normal_style)],
+        [Paragraph("<br><br><br><br>", normal_style)],
         [Paragraph("<b>返信日:</b>   月   日    <b>返信者名:</b>            (印)", normal_style)]
     ], colWidths=[520])
     reply_box.setStyle(TableStyle([
