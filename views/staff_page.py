@@ -88,13 +88,13 @@ def get_img_html(file_name, emoji, width="100%"):
         return f'<img src="{img_code}" style="width:{width}; aspect-ratio:1/1; object-fit:contain; border-radius:15px; display: block; margin: 0 auto;">'
     return f'<div style="width:{width}; aspect-ratio:1/1; background:#f0f2f6; border-radius:15px; display:flex; align-items:center; justify-content:center; font-size:40px; margin: 0 auto;">{emoji}</div>'
 
-# 💡 HTML特殊文字のエスケープおよび安全な改行変換関数
+# HTML特殊文字のエスケープおよび安全な改行変換関数
 def sanitize_for_paragraph(text):
     if not text:
         return ""
-    # & や < などの記号を安全な文字に変換したあと、改行コードを <br> に置換
     escaped = html.escape(str(text))
-    return escaped.replace("\n", "<br>")
+    # パパーサーエラー防止のため <br> の前後に確実にスペースを確保
+    return escaped.replace("\n", " <br> ")
 
 # 💡 PDF自動生成ロジック (A4サイズ・日本語フォント対応)
 def generate_pdf(data_row):
@@ -149,15 +149,19 @@ def generate_pdf(data_row):
     story.append(type_box)
     story.append(Spacer(1, 15))
     
-    # 4. メイン内容 (💡 エラーの原因だった <br> の記述方法を修正・最適化しました)
+    # 4. メイン内容 (💡 エラー回避のため、左側ラベル列はParagraphを使わないプレーンなテキストに変更)
     main_data = [
-        [Paragraph("<b>お客様名</b>", normal_style), Paragraph(sanitize_for_paragraph(data_row.get('customer_name', '')), normal_style)],
-        [Paragraph("<b>顧客コード /<br>シャトルコード</b>", normal_style), Paragraph(sanitize_for_paragraph(data_row.get('customer_code', '')), normal_style)],
-        [Paragraph("<b>住所・地図情報</b>", normal_style), Paragraph(sanitize_for_paragraph(data_row.get('address', '')), normal_style)],
-        [Paragraph("<b>具体的な報告・<br>提案内容</b>", normal_style), Paragraph(sanitize_for_paragraph(data_row.get('content', '')), normal_style)]
+        ["お客様名", Paragraph(sanitize_for_paragraph(data_row.get('customer_name', '')), normal_style)],
+        ["顧客コード /\nシャトルコード", Paragraph(sanitize_for_paragraph(data_row.get('customer_code', '')), normal_style)],
+        ["住所・地図情報", Paragraph(sanitize_for_paragraph(data_row.get('address', '')), normal_style)],
+        ["具体的な報告・\n提案内容", Paragraph(sanitize_for_paragraph(data_row.get('content', '')), normal_style)]
     ]
     t_main = Table(main_data, colWidths=[120, 400])
     t_main.setStyle(TableStyle([
+        # 左側ラベル列のフォント設定と太字指定
+        ('FONTNAME', (0,0), (0,-1), 'HeiseiKakuGo-W5'),
+        ('FONTSIZE', (0,0), (0,-1), 11),
+        ('TEXTCOLOR', (0,0), (0,-1), colors.black),
         ('BACKGROUND', (0,0), (0,-1), colors.whitesmoke),
         ('BOX', (0,0), (-1,-1), 1.5, colors.black),
         ('INNERGRID', (0,0), (-1,-1), 0.5, colors.grey),
@@ -171,9 +175,9 @@ def generate_pdf(data_row):
     story.append(Paragraph("<b>◇ 支店・加盟店様 返信コメント欄 ◇</b>", normal_style))
     story.append(Spacer(1, 5))
     
-    # 💡 パーサーエラー防止のため空行も安全な記法へ変更
+    # 空行の枠を確保 (ここもプレーンテキストで安全を確保)
     reply_box = Table([
-        [Paragraph("<br><br><br><br>", normal_style)],
+        ["\n\n\n\n"],
         [Paragraph("<b>返信日:</b>   月   日    <b>返信者名:</b>            (印)", normal_style)]
     ], colWidths=[520])
     reply_box.setStyle(TableStyle([
