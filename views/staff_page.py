@@ -7,6 +7,13 @@ import csv
 import io
 import json
 import datetime
+# 💡 PDF生成用のライブラリをインポート
+from reportlab.lib.pagesizes import a4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
 st.markdown("<style>header {visibility: hidden; height: 0px !important;}</style>", unsafe_allow_html=True)
 
@@ -81,6 +88,96 @@ def get_img_html(file_name, emoji, width="100%"):
         return f'<img src="{img_code}" style="width:{width}; aspect-ratio:1/1; object-fit:contain; border-radius:15px; display: block; margin: 0 auto;">'
     return f'<div style="width:{width}; aspect-ratio:1/1; background:#f0f2f6; border-radius:15px; display:flex; align-items:center; justify-content:center; font-size:40px; margin: 0 auto;">{emoji}</div>'
 
+# 💡 PDF自動生成ロジック (A4サイズ・日本語フォント対応)
+def generate_pdf(data_row):
+    pdfmetrics.registerFont(UnicodeCIDFont('HeiseiKakuGo-W5'))
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=a4, 
+        rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36
+    )
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'TitleStyle', parent=styles['Heading1'], fontName='HeiseiKakuGo-W5', fontSize=18, alignment=1, spaceAfter=15
+    )
+    normal_style = ParagraphStyle(
+        'NormalStyle', parent=styles['Normal'], fontName='HeiseiKakuGo-W5', fontSize=11, leading=16
+    )
+    
+    story = []
+    
+    # 1. タイトル
+    story.append(Paragraph(f"シャトル{data_row.get('branch', '神戸中央店')} 情報カード", title_style))
+    
+    # 2. 基本情報テーブル
+    info_data = [
+        [
+            Paragraph(f"<b>作成日:</b> {data_row.get('report_date', '')}", normal_style),
+            Paragraph(f"<b>作成者:</b> {data_row.get('reporter', '')} 印", normal_style),
+            Paragraph("<b>チーフ印:</b> ", normal_style)
+        ]
+    ]
+    t_info = Table(info_data, colWidths=[200, 160, 160])
+    t_info.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.whitesmoke),
+        ('BOX', (0,0), (-1,-1), 1, colors.grey),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('PADDING', (0,0), (-1,-1), 8),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
+    ]))
+    story.append(t_info)
+    story.append(Spacer(1, 15))
+    
+    # 3. 情報の種類
+    story.append(Paragraph(f"<b>【 情報の種類 】</b>", normal_style))
+    story.append(Spacer(1, 5))
+    type_box = Table([[Paragraph(f"<b>{data_row.get('report_type', '')}</b>", normal_style)]], colWidths=[520])
+    type_box.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.lightyellow),
+        ('BOX', (0,0), (-1,-1), 1, colors.orange),
+        ('PADDING', (0,0), (-1,-1), 10)
+    ]))
+    story.append(type_box)
+    story.append(Spacer(1, 15))
+    
+    # 4. メイン内容
+    main_data = [
+        [Paragraph("<b>お客様名</b>", normal_style), Paragraph(str(data_row.get('customer_name', '')), normal_style)],
+        [Paragraph("<b>顧客コード / <br>シャトルコード</b>", normal_style), Paragraph(str(data_row.get('customer_code', '')), normal_style)],
+        [Paragraph("<b>住所・地図情報</b>", normal_style), Paragraph(str(data_row.get('address', '')).replace('\n', '<br/>'), normal_style)],
+        [Paragraph("<b>具体的な報告・<br>提案内容</b>", normal_style), Paragraph(str(data_row.get('content', '')).replace('\n', '<br/>'), normal_style)]
+    ]
+    t_main = Table(main_data, colWidths=[120, 400])
+    t_main.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (0,-1), colors.whitesmoke),
+        ('BOX', (0,0), (-1,-1), 1.5, colors.black),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('PADDING', (0,0), (-1,-1), 12),
+        ('VALIGN', (0,0), (-1,-1), 'TOP')
+    ]))
+    story.append(t_main)
+    story.append(Spacer(1, 20))
+    
+    # 5. 返信コメント欄
+    story.append(Paragraph("<b>◇ 支店・加盟店様 返信コメント欄 ◇</b>", normal_style))
+    story.append(Spacer(1, 5))
+    reply_box = Table([
+        [Paragraph("<br/><br/><br/><br/>", normal_style)],
+        [Paragraph("<b>返信日:</b>   月  日    <b>返信者名:</b>           (印)", normal_style)]
+    ], colWidths=[520])
+    reply_box.setStyle(TableStyle([
+        ('BOX', (0,0), (-1,-1), 1, colors.black),
+        ('LINEBELOW', (0,0), (0,0), 0.5, colors.grey),
+        ('PADDING', (0,0), (-1,-1), 10),
+        ('VALIGN', (0,0), (-1,-1), 'BOTTOM')
+    ]))
+    story.append(reply_box)
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
 # --- 画面表示処理 ---
 if not st.session_state.get("login_status", False):
     st.warning("ログインしてください。")
@@ -89,9 +186,11 @@ else:
     user_name = st.session_state.user_name
     user_branch = st.session_state.user_branch
 
-    # セッション状態の初期化（情報カードフォーム開閉用フラグ）
+    # セッション状態の初期化
     if 'show_report_form' not in st.session_state:
         st.session_state.show_report_form = False
+    if 'last_submitted_data' not in st.session_state:
+        st.session_state.last_submitted_data = None
 
     st.markdown("""
         <style>
@@ -111,12 +210,10 @@ else:
     if user_branch == "神戸中央店":
         st.write("### 🏢 メニュー（神戸中央店）")
 
-        # 各種URL取得
         maint_input_url = "https://docs.google.com/forms/d/e/1FAIpQLSc4E3L_UJkVxMMSTOYgcw3SJyoBixHoJfhe0WC-x1wbK6lsHw/viewform"
         maint_confirm_url = get_kobe_user_maintenance_url(user_name)
         campaign_name, campaign_url = get_kobe_campaign_info()
 
-        # 画像からHTMLを生成
         b1 = get_img_html("3.png", "📄")
         b2 = get_img_html("4.png", "📋")
         b4 = get_img_html("5.png", "🧽")
@@ -136,7 +233,7 @@ else:
         '''
         st.markdown(grid_html, unsafe_allow_html=True)
 
-        # ✍️ 「情報カード報告書」の入力エリアの表示切り替えボタン
+        # ✍️ 「情報カード報告書」の表示切り替えボタン
         st.write("---")
         
         btn_type = "primary"
@@ -145,20 +242,33 @@ else:
 
         if st.button("📝 ３店共通情報カード（報告）を作成する", use_container_width=True, type=btn_type):
             st.session_state.show_report_form = not st.session_state.show_report_form
+            # フォームを開くときは直前の印刷ボタンを隠す
+            if st.session_state.show_report_form:
+                st.session_state.last_submitted_data = None
             st.rerun()
+
+        # 💡 送信直後の印刷用ダウンロードボタンの表示位置
+        if st.session_state.last_submitted_data and not st.session_state.show_report_form:
+            st.info("🎉 報告書の送信が完了しています。必要に応じて以下から印刷・保存してください。")
+            pdf_buf = generate_pdf(st.session_state.last_submitted_data)
+            st.download_button(
+                label=f"🖨️ 送信した「{st.session_state.last_submitted_data['customer_name']}」の報告書を印刷する",
+                data=pdf_buf,
+                file_name=f"情報カード_{st.session_state.last_submitted_data['customer_name']}.pdf",
+                mime="application/pdf",
+                type="primary",
+                use_container_width=True
+            )
+            st.write("---")
 
         # --- 📝 情報カード入力フォーム ---
         if st.session_state.show_report_form:
             st.markdown("### 📋 ３店共通情報カード（プラスα）入力")
             
             with st.form("report_card_form", clear_on_submit=True):
-                # 報告者と拠点はログインセッションから自動で取得して固定表示
                 st.info(f"**作成者:** {user_name}  /  **拠点:** {user_branch}")
-                
-                # 報告日（初期値は今日）
                 report_date = st.date_input("作成日", datetime.date.today())
                 
-                # 情報分類（ラジオボタンで1つ選択）
                 report_type = st.radio(
                     "情報の種類",
                     [
@@ -181,7 +291,6 @@ else:
                     elif not content:
                         st.error("「具体的な報告・提案内容」は必須入力項目です。")
                     else:
-                        # 送信用データを作成
                         payload = {
                             "report_date": str(report_date),
                             "reporter": user_name,
@@ -193,8 +302,7 @@ else:
                             "content": content
                         }
                         
-                        # 💡 提示いただいたGASのURLを設定完了！
-                        gas_url = "https://script.google.com/macros/s/AKfycbxuMu_EQMv6-4TxWRH0qwCW9PUi4-dU8p273wowLvFQPCsw_gogAKV4aR_z9uTzIqA/exec"
+                        gas_url = "https://script.google.com/macros/s/AKfycbz3QF-WcjncAsN7gusA2Rlqry6hC9avTFGBrNz1qEaKhnd3z47OLOiD2qRIqjzY0dDL/exec"
                         
                         try:
                             headers = {"Content-Type": "application/json"}
@@ -207,7 +315,9 @@ else:
                             with urllib.request.urlopen(req, timeout=10) as response:
                                 res_data = json.loads(response.read().decode("utf-8"))
                                 if res_data.get("status") == "success":
-                                    st.success("報告書を正常に送信・スプレッドシートへ記録しました！")
+                                    st.toast("スプレッドシートへの記録が完了しました！")
+                                    # データをセッションに保存して印刷ボタンを出すトリガーにする
+                                    st.session_state.last_submitted_data = payload
                                     st.session_state.show_report_form = False
                                     st.rerun()
                                 else:
