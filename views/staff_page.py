@@ -7,8 +7,8 @@ import csv
 import io
 import json
 import datetime
-# 💡 PDF生成用のライブラリをインポート
-from reportlab.lib.pagesizes import a4
+# 💡 大文字の「A4」に修正しました
+from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
@@ -92,8 +92,9 @@ def get_img_html(file_name, emoji, width="100%"):
 def generate_pdf(data_row):
     pdfmetrics.registerFont(UnicodeCIDFont('HeiseiKakuGo-W5'))
     buffer = io.BytesIO()
+    # 💡 ここも大文字の A4 に変更しました
     doc = SimpleDocTemplate(
-        buffer, pagesize=a4, 
+        buffer, pagesize=A4, 
         rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36
     )
     
@@ -164,7 +165,7 @@ def generate_pdf(data_row):
     story.append(Spacer(1, 5))
     reply_box = Table([
         [Paragraph("<br/><br/><br/><br/>", normal_style)],
-        [Paragraph("<b>返信日:</b>   月  日    <b>返信者名:</b>           (印)", normal_style)]
+        [Paragraph("<b>返信日:</b>   月   日    <b>返信者名:</b>            (印)", normal_style)]
     ], colWidths=[520])
     reply_box.setStyle(TableStyle([
         ('BOX', (0,0), (-1,-1), 1, colors.black),
