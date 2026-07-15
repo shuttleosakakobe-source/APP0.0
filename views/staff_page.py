@@ -5,6 +5,7 @@ import html
 import urllib.request
 import csv
 import io
+import json
 
 st.markdown("<style>header {visibility: hidden; height: 0px !important;}</style>", unsafe_allow_html=True)
 
@@ -60,9 +61,6 @@ def get_kobe_user_maintenance_url(user_name):
         for row in rows[1:]:
             if len(row) > name_idx:
                 sheet_name_val = row[name_idx].strip()
-                
-                # 💡 あいまい検索対応：
-                # 例：「肥爪」さんがログインしており、シート上に「⑤メンテナンス担当者(肥爪)」と書かれていれば一致と見なす
                 if user_name in sheet_name_val or sheet_name_val in user_name:
                     if len(row) >= 5:
                         return row[4].strip()
@@ -90,6 +88,10 @@ else:
     user_name = st.session_state.user_name
     user_branch = st.session_state.user_branch
 
+    # セッション状態の初期化（情報カードフォーム開閉用フラグ）
+    if 'show_report_form' not in st.session_state:
+        st.session_state.show_report_form = False
+
     st.markdown("""
         <style>
         .block-container { padding-top: 1.5rem !important; max-width: 500px; }
@@ -108,13 +110,9 @@ else:
     if user_branch == "神戸中央店":
         st.write("### 🏢 メニュー（神戸中央店）")
 
-        # 1. メンテナンス入力
+        # 各種URL取得
         maint_input_url = "https://docs.google.com/forms/d/e/1FAIpQLSc4E3L_UJkVxMMSTOYgcw3SJyoBixHoJfhe0WC-x1wbK6lsHw/viewform"
-        
-        # 2. メンテナンス確認
         maint_confirm_url = get_kobe_user_maintenance_url(user_name)
-        
-        # 3. キャンペーン情報
         campaign_name, campaign_url = get_kobe_campaign_info()
 
         # 画像からHTMLを生成
@@ -136,6 +134,84 @@ else:
             </div>
         '''
         st.markdown(grid_html, unsafe_allow_html=True)
+
+        # ✍️ 「情報カード報告書」の入力エリアの表示切り替えボタン
+        st.write("---")
+        if st.button("📝 ３店共通情報カード（報告）を作成する", use_container_width=True, type="primary" if not st.session_state.show_report_form else "secondary"):
+            st.session_state.show_report_form = not st.session_state.show_report_form
+            st.rerun()
+
+        # --- 📝 情報カード入力フォーム ---
+        if st.session_state.show_report_form:
+            st.markdown("### 📋 ３店共通情報カード（プラスα）入力")
+            
+            with st.form("report_card_form", clear_on_submit=True):
+                # 報告者と拠点はログインセッションから自動で取得して固定表示
+                st.info(f"**作成者:** {user_name}  /  **拠点:** {user_branch}")
+                
+                # 報告日（初期値は今日）
+                import datetime
+                report_date = st.date_input("作成日", datetime.date.today())
+                
+                # 情報分類（ラジオボタンで1つ選択）
+                report_type = st.radio(
+                    "情報の種類",
+                    [
+                        "A. 業務情報",
+                        "B. 新規顧客営業情報 (返信不要)",
+                        "C. 既存顧客解約減少防止情報 (返信不要)"
+                    ]
+                )
+                
+                customer_name = st.text_input("お客様名（店舗名など）", placeholder="例：〇〇うどん 東神戸店")
+                customer_code = st.text_input("顧客コード / シャトルコード（任意）", placeholder="分かれば入力してください")
+                address = st.text_area("住所・地図情報", placeholder="新店の場所や住所、目印になる情報をご記入ください")
+                content = st.text_area("具体的な報告・提案内容", placeholder="例：新店が〇月〇日にオープン予定です。一度営業してみてはいかがでしょうか。")
+                
+                submitted = st.form_submit_form_button("📮 報告書を送信する", use_container_width=True)
+                
+                if submitted:
+                    if not customer_name:
+                        st.error("「お客様名」は必須入力項目です。")
+                    elif not content:
+                        st.error("「具体的な報告・提案内容」は必須入力項目です。")
+                    else:
+                        # 送信用データを作成
+                        payload = {
+                            "report_date": str(report_date),
+                            "reporter": user_name,
+                            "branch": user_branch,
+                            "report_type": report_type,
+                            "customer_name": customer_name,
+                            "customer_code": customer_code,
+                            "address": address,
+                            "content": content
+                        }
+                        
+                        # 💡 GASウェブアプリURL（ここに生成したURLを設定）
+                        gas_url = "https://script.google.com/macros/s/AKfycbwCNRjHLgbMQHCiQYjvmwQ_MVcHmwu-Y77jdbLlJmJbbHPLEK7zaPGFcBOPZgTu5o6Q/exec"
+                        
+                        if gas_url == "https://script.google.com/macros/s/AKfycbwCNRjHLgbMQHCiQYjvmwQ_MVcHmwu-Y77jdbLlJmJbbHPLEK7zaPGFcBOPZgTu5o6Q/exec":
+                            st.warning("GASの連携設定がまだ完了していません。管理者にお問い合わせください。")
+                        else:
+                            try:
+                                headers = {"Content-Type": "application/json"}
+                                req = urllib.request.Request(
+                                    gas_url, 
+                                    data=json.dumps(payload).encode("utf-8"), 
+                                    headers=headers, 
+                                    method="POST"
+                                )
+                                with urllib.request.urlopen(req, timeout=10) as response:
+                                    res_data = json.loads(response.read().decode("utf-8"))
+                                    if res_data.get("status") == "success":
+                                        st.success("報告書を正常に送信・スプレッドシートへ記録しました！")
+                                        st.session_state.show_report_form = False
+                                        st.rerun()
+                                    else:
+                                        st.error(f"送信エラーが発生しました: {res_data.get('message')}")
+                            except Exception as e:
+                                st.error(f"接続に失敗しました。時間をおいて再度お試しください。({e})")
     else:
         st.info(f"{user_branch}用の画面は現在準備中です。")
 
