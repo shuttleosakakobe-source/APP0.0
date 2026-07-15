@@ -19,7 +19,7 @@ def load_sheet_data(custom_url):
     except Exception as e:
         return None
 
-# --- 🆕 神戸中央店用の各種データ取得関数 ---
+# --- 神戸中央店用の各種データ取得関数 ---
 @st.cache_data(ttl=60)
 def get_kobe_campaign_info():
     sheet_id = "1-1zvVWOfHsXFWdUoAZwOUnxo1BgSdKMG6GubpRTVqeM"
@@ -58,9 +58,14 @@ def get_kobe_user_maintenance_url(user_name):
             name_idx = 1
             
         for row in rows[1:]:
-            if len(row) > name_idx and row[name_idx].strip() == user_name:
-                if len(row) >= 5:
-                    return row[4].strip()
+            if len(row) > name_idx:
+                sheet_name_val = row[name_idx].strip()
+                
+                # 💡 あいまい検索対応：
+                # 例：「肥爪」さんがログインしており、シート上に「⑤メンテナンス担当者(肥爪)」と書かれていれば一致と見なす
+                if user_name in sheet_name_val or sheet_name_val in user_name:
+                    if len(row) >= 5:
+                        return row[4].strip()
     return "#"
 
 # 画像をBase64変換
@@ -85,7 +90,6 @@ else:
     user_name = st.session_state.user_name
     user_branch = st.session_state.user_branch
 
-    # ヘッダー周りのスタイル
     st.markdown("""
         <style>
         .block-container { padding-top: 1.5rem !important; max-width: 500px; }
@@ -100,7 +104,7 @@ else:
     if os.path.exists("1.png"): 
         st.image("1.png", use_container_width=True)
 
-    # 🏢 拠点分岐 (現在は神戸中央店のみ定義)
+    # 🏢 拠点分岐 (神戸中央店)
     if user_branch == "神戸中央店":
         st.write("### 🏢 メニュー（神戸中央店）")
 
@@ -118,7 +122,6 @@ else:
         b2 = get_img_html("4.png", "📋")
         b4 = get_img_html("5.png", "🧽")
 
-        # HTMLグリッドでボタンを表示
         grid_html = f'''
             <div class="button-grid">
                 <a class="btn-item" href="{maint_input_url}" target="_blank">
