@@ -6,7 +6,7 @@ import urllib.request
 import csv
 import io
 import json
-import datetime  # 💡 importはファイルの先頭にまとめました
+import datetime
 
 st.markdown("<style>header {visibility: hidden; height: 0px !important;}</style>", unsafe_allow_html=True)
 
@@ -139,7 +139,6 @@ else:
         # ✍️ 「情報カード報告書」の入力エリアの表示切り替えボタン
         st.write("---")
         
-        # 💡 ボタンのtype判定でのエラーを防ぐため、単純なif文に分離しました
         btn_type = "primary"
         if st.session_state.show_report_form:
             btn_type = "secondary"
@@ -194,30 +193,27 @@ else:
                             "content": content
                         }
                         
-                        # 💡 GASウェブアプリURL（ここに生成したURLを設定してください）
-                        gas_url = "★ここにGASのウェブアプリURLを貼り付けてください★"
+                        # 💡 提示いただいたGASのURLを設定完了！
+                        gas_url = "https://script.google.com/macros/s/AKfycbxuMu_EQMv6-4TxWRH0qwCW9PUi4-dU8p273wowLvFQPCsw_gogAKV4aR_z9uTzIqA/exec"
                         
-                        if gas_url == "★ここにGASのウェブアプリURLを貼り付けてください★":
-                            st.warning("GASの連携設定がまだ完了していません。管理者にお問い合わせください。")
-                        else:
-                            try:
-                                headers = {"Content-Type": "application/json"}
-                                req = urllib.request.Request(
-                                    gas_url, 
-                                    data=json.dumps(payload).encode("utf-8"), 
-                                    headers=headers, 
-                                    method="POST"
-                                )
-                                with urllib.request.urlopen(req, timeout=10) as response:
-                                    res_data = json.loads(response.read().decode("utf-8"))
-                                    if res_data.get("status") == "success":
-                                        st.success("報告書を正常に送信・スプレッドシートへ記録しました！")
-                                        st.session_state.show_report_form = False
-                                        st.rerun()
-                                    else:
-                                        st.error(f"送信エラーが発生しました: {res_data.get('message')}")
-                            except Exception as e:
-                                st.error(f"接続に失敗しました。時間をおいて再度お試しください。({e})")
+                        try:
+                            headers = {"Content-Type": "application/json"}
+                            req = urllib.request.Request(
+                                gas_url, 
+                                data=json.dumps(payload).encode("utf-8"), 
+                                headers=headers, 
+                                method="POST"
+                            )
+                            with urllib.request.urlopen(req, timeout=10) as response:
+                                res_data = json.loads(response.read().decode("utf-8"))
+                                if res_data.get("status") == "success":
+                                    st.success("報告書を正常に送信・スプレッドシートへ記録しました！")
+                                    st.session_state.show_report_form = False
+                                    st.rerun()
+                                else:
+                                    st.error(f"送信エラーが発生しました: {res_data.get('message')}")
+                        except Exception as e:
+                            st.error(f"接続に失敗しました。時間をおいて再度お試しください。({e})")
     else:
         st.info(f"{user_branch}用の画面は現在準備中です。")
 
