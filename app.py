@@ -51,7 +51,6 @@ else:
         st.image("1.png", use_container_width=True)
         
     st.write("### 🔑 ログイン")
-    # ✉️ 担当者コードから「メールアドレス」に変更
     u_email = st.text_input("メールアドレス", key="login_email").strip()
     u_pass = st.text_input("パスワード", type="password", key="login_pass").strip()
     
@@ -60,24 +59,41 @@ else:
         raw = load_sheet_data(master_url)
         if raw:
             h_cols = [col.strip() for col in raw[0]]
-            rows = [dict(zip(h_cols, r)) for r in raw[1:]]
             
-            # ✉️ 「メールアドレス」と「パスワード」でユーザーを検索
-            user = next((
-                r for r in rows 
-                if str(r.get('メールアドレス')).strip() == u_email 
-                and str(r.get('パスワード')).strip() == u_pass
-            ), None)
-            
-            if user:
-                vals = list(user.values())
-                st.session_state.user_name = user.get('担当者名')
-                st.session_state.user_branch = user.get('拠点', '神戸中央店')  # 拠点情報を取得（なければデフォルト神戸）
-                st.session_state.user_role = str(vals[6]).strip() if len(vals) >= 7 else "2"
-                st.session_state.user_code = user.get('担当者コード', '')  # ログイン後に必要ならコードも取得
-                st.session_state.user_email = u_email
-                st.session_state.login_status = True
+            # メールアドレスとパスワードが合致する行を探す
+            # ※ヘッダー名に依存せず位置で確実に判定するため、生の行(list)でループします
+            matched_row = None
+            for row in raw[1:]:
+                # 行の長さが足りているかチェック
+                if len(row) < 6:
+                    continue
                 
+                # スプレッドシート側の列構成に合わせて確認：
+                # (例: メールアドレス列、パスワード列のインデックスと照合)
+                # ここでは dict に変換して、キーから確実に取得します
+                row_dict = dict(zip(h_cols, row))
+                
+                if str(row_dict.get('メールアドレス')).strip() == u_email and str(row_dict.get('パスワード')).strip() == u_pass:
+                    matched_row = row
+                    break
+            
+            if matched_row:
+                # 一致した行を辞書化
+                user_dict = dict(zip(h_cols, matched_row))
+                
+                # 各自の情報をセッションに保存
+                st.session_state.user_name = user_dict.get('担当者名', '')
+                st.session_state.user_branch = user_dict.get('拠点', '神戸中央店')
+                st.session_state.user_code = user_dict.get('担当者コード', '')
+                st.session_state.user_email = u_email
+                
+                # ⭐ 権限は F列 (インデックス5 / A=0, B=1, C=2, D=3, E=4, F=5)
+                if len(matched_row) >= 6:
+                    st.session_state.user_role = str(matched_row[5]).strip() # F列を直接指定
+                else:
+                    st.session_state.user_role = "2" # 取得できなければデフォルト一般スタッフ
+                
+                st.session_state.login_status = True
                 st.success(f"ログイン成功: {st.session_state.user_name} さん")
                 st.rerun()
             else:
