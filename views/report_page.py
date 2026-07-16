@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import io
 import os
+import datetime  # ★ここを追加してください
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
