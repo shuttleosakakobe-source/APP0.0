@@ -13,24 +13,52 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
 # PDF生成関数
+# PDF生成関数の該当部分を以下に差し替えてください
 def generate_pdf(data_row, map_image_path=None):
+    # 日本語フォントの読み込みをより確実にします
     pdfmetrics.registerFont(UnicodeCIDFont('HeiseiKakuGo-W5'))
+    
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+    # マージンやサイズを標準化
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     styles = getSampleStyleSheet()
-    normal_style = ParagraphStyle('Normal', fontName='HeiseiKakuGo-W5', fontSize=11, leading=16)
     
-    story = [Paragraph("シャトル神戸中央店 新規営業情報カード", ParagraphStyle('Title', fontName='HeiseiKakuGo-W5', fontSize=18, alignment=1))]
+    # 完全に日本語が通るようにスタイルを定義
+    title_style = ParagraphStyle(
+        'Title', parent=styles['Heading1'], fontName='HeiseiKakuGo-W5', 
+        fontSize=18, alignment=1, spaceAfter=20
+    )
+    normal_style = ParagraphStyle(
+        'Normal', parent=styles['Normal'], fontName='HeiseiKakuGo-W5', 
+        fontSize=12, leading=18
+    )
+    
+    story = []
+    story.append(Paragraph("シャトル神戸中央店 新規営業情報カード", title_style))
     story.append(Paragraph(f"作成日: {data_row.get('report_date')} 作成者: {data_row.get('reporter')} 様", normal_style))
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 20))
     
-    data = [["加盟店", data_row.get('branch_name', '')], ["お客様名", f"{data_row.get('customer_name', '')} 様"], ["住所", data_row.get('address', '')], ["詳細", data_row.get('content', '')]]
-    table = Table(data, colWidths=[80, 420])
-    table.setStyle(TableStyle([('BOX', (0,0), (-1,-1), 1, colors.black), ('INNERGRID', (0,0), (-1,-1), 0.5, colors.grey), ('PADDING', (0,0), (-1,-1), 10), ('FONTNAME', (0,0), (0,-1), 'HeiseiKakuGo-W5')]))
+    # 表データ
+    data = [
+        ["加盟店", data_row.get('branch_name', '')],
+        ["お客様名", f"{data_row.get('customer_name', '')} 様"],
+        ["住所", data_row.get('address', '')],
+        ["詳細", data_row.get('content', '')],
+    ]
+    
+    # 表の列幅とスタイルを詳細に設定
+    table = Table(data, colWidths=[100, 350])
+    table.setStyle(TableStyle([
+        ('FONTNAME', (0,0), (-1,-1), 'HeiseiKakuGo-W5'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('PADDING', (0,0), (-1,-1), 8),
+    ]))
     story.append(table)
     
     if map_image_path and os.path.exists(map_image_path):
-        story.append(Spacer(1, 15))
+        story.append(Spacer(1, 20))
+        story.append(Paragraph("地図・資料:", normal_style))
         story.append(RLImage(map_image_path, width=300, height=200))
         
     doc.build(story)
