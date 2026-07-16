@@ -13,7 +13,6 @@ from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
-# ヘッダーを隠す設定
 st.markdown("<style>header {visibility: hidden; height: 0px !important;}</style>", unsafe_allow_html=True)
 
 # PDF生成ロジック
@@ -30,7 +29,6 @@ def generate_pdf(data_row, map_image_path=None):
     story.append(Paragraph(f"作成日: {data_row.get('report_date')}  作成者: {data_row.get('reporter')} 様", normal_style))
     story.append(Spacer(1, 10))
     
-    # テーブルデータ（加盟店を含む）
     data = [
         ["加盟店", data_row.get('branch_name', '')],
         ["お客様名", f"{data_row.get('customer_name', '')} 様"],
@@ -47,7 +45,7 @@ def generate_pdf(data_row, map_image_path=None):
     ]))
     story.append(table)
     
-    if map_image_path:
+    if map_image_path and os.path.exists(map_image_path):
         story.append(Spacer(1, 15))
         story.append(Paragraph("<b>地図等:</b>", normal_style))
         img = RLImage(map_image_path, width=300, height=200)
@@ -70,7 +68,6 @@ def generate_pdf(data_row, map_image_path=None):
     return buffer
 
 # --- 画面描画 ---
-# ログインしていない場合はログイン画面へ遷移
 if not st.session_state.get("login_status", False):
     st.switch_page("views/login.py")
 
@@ -81,7 +78,7 @@ st.markdown("### 📋 新規営業情報カード 入力")
 
 if st.session_state.get('last_submitted_data'):
     st.success("🎉 送信完了！")
-    pdf_buf = generate_pdf(st.session_state.last_submitted_data, map_image_path="temp_map.png" if os.path.exists("temp_map.png") else None)
+    pdf_buf = generate_pdf(st.session_state.last_submitted_data, map_image_path="temp_map.png")
     st.download_button("🖨️ 報告書を印刷・保存", data=pdf_buf, file_name="情報カード.pdf", mime="application/pdf", use_container_width=True)
     
     if st.button("✍️ 続けて作成する", use_container_width=True):
@@ -99,7 +96,7 @@ else:
         
         if st.form_submit_button("📮 報告書を送信する", use_container_width=True):
             if uploaded_file:
-                Image.open(uploaded_file).save("temp_map.png")
+                Image.open(uploaded_file).convert("RGB").save("temp_map.png")
             
             payload = {
                 "report_date": str(report_date), 
@@ -109,12 +106,21 @@ else:
                 "address": address, 
                 "content": content
             }
-            # ※ここに正しいGASのURLを貼り付けてください
+            
+            # GASのURL（ご自身のURLに書き換えてください）
             gas_url = "https://script.google.com/macros/s/（ここにあなたのURL）/exec"
             
             try:
-                # ensure_ascii=False で文字化け回避
-                req = urllib.request.Request(gas_url, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
+                # 日本語対策：json.dumpsのensure_ascii=Falseを使用
+                json_str = json.dumps(payload, ensure_ascii=False)
+                data_bytes = json_str.encode("utf-8")
+                
+                req = urllib.request.Request(
+                    gas_url, 
+                    data=data_bytes, 
+                    headers={"Content-Type": "application/json"},
+                    method="POST"
+                )
                 with urllib.request.urlopen(req, timeout=10) as response:
                     st.session_state.last_submitted_data = payload
                     st.rerun()
