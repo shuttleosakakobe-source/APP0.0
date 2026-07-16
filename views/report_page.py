@@ -46,9 +46,8 @@ if st.button("⬅️ メニュー画面に戻る"):
 
 st.markdown("### 📋 新規営業情報カード 入力")
 
-# 送信成功したかどうかを判定するフラグ
 if "submitted_data" not in st.session_state:
-    with st.form("new_report_form", clear_on_submit=True):
+    with st.form("new_report_form"):
         report_date = st.date_input("作成日", datetime.date.today())
         branch_name = st.text_input("加盟店名")
         customer_name = st.text_input("お客様名")
@@ -66,19 +65,19 @@ if "submitted_data" not in st.session_state:
                 "address": address, "content": content
             }
             
-            gas_url = "https://script.google.com/macros/s/（ここにあなたのURL）/exec"
+            # 正しいURLに更新済み
+            gas_url = "https://script.google.com/macros/s/AKfycbwsWHCg5wd7L5RpsE41DCXDzhqJzULx9-7_nC59PLjd58fApK_Zva40lpFZDvzHObik/exec"
+            
             try:
-                res = requests.post(gas_url, json=payload, timeout=10)
+                res = requests.post(gas_url, json=payload, timeout=20)
                 if res.status_code == 200:
                     st.session_state.submitted_data = payload
-                    # ここで st.rerun() を呼ぶとエラーになるため、
-                    # あえて呼ばず、次の画面描画サイクルに委ねます。
+                    st.rerun() 
                 else:
-                    st.error("送信失敗")
+                    st.error(f"送信失敗: サーバーからの応答コード {res.status_code}")
             except Exception as e:
-                st.error(f"エラー: {e}")
+                st.error(f"通信エラー: {str(e)}")
 else:
-    # 送信完了後の画面
     st.success("🎉 送信完了！")
     pdf_buf = generate_pdf(st.session_state.submitted_data, map_image_path="temp_map.png")
     st.download_button("🖨️ 報告書を印刷・保存", data=pdf_buf, file_name="情報カード.pdf", mime="application/pdf")
@@ -86,4 +85,4 @@ else:
     if st.button("✍️ 続けて作成する"):
         del st.session_state.submitted_data
         if os.path.exists("temp_map.png"): os.remove("temp_map.png")
-        # これも rerun 不要。ボタンが押されたら次のサイクルで自動的にフォーム側に戻ります。
+        st.rerun()
