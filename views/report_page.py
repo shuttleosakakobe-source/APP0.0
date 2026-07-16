@@ -14,11 +14,6 @@ from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
 st.markdown("<style>header {visibility: hidden; height: 0px !important;}</style>", unsafe_allow_html=True)
 
-# 安全なテキスト処理
-def sanitize_for_paragraph(text):
-    if not text: return ""
-    return html.escape(str(text)).replace("\n", " <br> ")
-
 # PDF生成ロジック
 def generate_pdf(data_row, map_image_path=None):
     pdfmetrics.registerFont(UnicodeCIDFont('HeiseiKakuGo-W5'))
@@ -34,11 +29,12 @@ def generate_pdf(data_row, map_image_path=None):
     story.append(Paragraph(f"作成日: {data_row.get('report_date')}  作成者: {data_row.get('reporter')} 様", normal_style))
     story.append(Spacer(1, 10))
     
-    # メインテーブル
+    # メインテーブル（加盟店を追加）
     data = [
-        ["お客様名", f"{data_row.get('customer_name')} 様"],
-        ["住所", data_row.get('address')],
-        ["詳細", data_row.get('content')],
+        ["加盟店", data_row.get('branch_name', '')],
+        ["お客様名", f"{data_row.get('customer_name', '')} 様"],
+        ["住所", data_row.get('address', '')],
+        ["詳細", data_row.get('content', '')],
     ]
     table = Table(data, colWidths=[80, 420])
     table.setStyle(TableStyle([
@@ -47,7 +43,7 @@ def generate_pdf(data_row, map_image_path=None):
     ]))
     story.append(table)
     
-    # 地図画像挿入
+    # 地図画像
     if map_image_path:
         story.append(Spacer(1, 15))
         story.append(Paragraph("<b>地図等:</b>", normal_style))
@@ -69,22 +65,14 @@ def generate_pdf(data_row, map_image_path=None):
     return buffer
 
 # --- 画面描画 ---
-if not st.session_state.get("login_status", False):
-    st.switch_page("app.py")
+if not st.session_state.get("login_status", False): st.switch_page("app.py")
 
-user_name = st.session_state.user_name
-user_branch = st.session_state.user_branch
-
-st.markdown("<style>.block-container { max-width: 500px; }</style>", unsafe_allow_html=True)
-
-if st.button("⬅️ メニュー画面に戻る", use_container_width=True):
-    st.switch_page("views/staff_page.py")
+if st.button("⬅️ メニュー画面に戻る", use_container_width=True): st.switch_page("views/staff_page.py")
 
 st.markdown("### 📋 新規営業情報カード 入力")
 
 if st.session_state.get('last_submitted_data'):
     st.success("🎉 送信完了！")
-    # PDF生成時に画像を渡す
     pdf_buf = generate_pdf(st.session_state.last_submitted_data, map_image_path="temp_map.png" if os.path.exists("temp_map.png") else None)
     st.download_button("🖨️ 報告書を印刷・保存", data=pdf_buf, file_name="情報カード.pdf", mime="application/pdf", use_container_width=True)
     if st.button("✍️ 続けて作成する", use_container_width=True):
@@ -94,18 +82,19 @@ if st.session_state.get('last_submitted_data'):
 else:
     with st.form("new_report_form", clear_on_submit=True):
         report_date = st.date_input("作成日", datetime.date.today())
+        branch_name = st.text_input("加盟店名")
         customer_name = st.text_input("お客様名")
         address = st.text_input("住所")
         content = st.text_area("詳細")
         uploaded_file = st.file_uploader("地図等の画像をアップロード", type=['png', 'jpg', 'jpeg'])
         
         if st.form_submit_button("📮 報告書を送信する", use_container_width=True):
-            if uploaded_file:
-                Image.open(uploaded_file).save("temp_map.png")
+            if uploaded_file: Image.open(uploaded_file).save("temp_map.png")
             
             payload = {
-                "report_date": str(report_date), "reporter": user_name, "branch": user_branch,
-                "customer_name": customer_name, "address": address, "content": content
+                "report_date": str(report_date), "reporter": st.session_state.user_name,
+                "branch_name": branch_name, "customer_name": customer_name,
+                "address": address, "content": content
             }
             # ※ここに正しいGASのURLを貼り付けてください
             gas_url = "https://script.google.com/macros/s/（ここにあなたのURL）/exec"
@@ -116,4 +105,4 @@ else:
                     st.session_state.last_submitted_data = payload
                     st.rerun()
             except Exception as e:
-                st.error(f"接続エラー: {e}")
+                st.error(f"送信エラー: {e}")
