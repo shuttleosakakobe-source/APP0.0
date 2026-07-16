@@ -28,7 +28,7 @@ def generate_pdf(data_row, map_image_path=None):
     can.drawString(80, 400, str(data_row.get('content', '')))
     
     if map_image_path and os.path.exists(map_image_path):
-        can.drawImage(map_image_path, 300, 380, width=150, height=100)
+        can.drawImage(map_image_path, 350, 400, width=150, height=100)
     
     can.save()
     packet.seek(0)
