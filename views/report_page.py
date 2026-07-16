@@ -34,7 +34,7 @@ with st.form("report_form"):
         }
         
         # あなたのGASデプロイURL
-        gas_url = "https://script.google.com/macros/s/AKfycbx20iER9ujWECjZ9Xkrwt-KmzzruGv7Y03ApJe4_wY73kULrynX49Q1s5_Li5aOEcod/exec"
+        gas_url = "https://script.google.com/macros/s/AKfycbzQCbON7Mnjn_cp10qdl-_jE9MwtlbYg6-kK55kDyB-b69_i5MB-eV-YeFJ7P_w7Yvm/exec"
         
         try:
             with st.spinner('PDFを作成中...'):
