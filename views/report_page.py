@@ -20,12 +20,12 @@ def generate_pdf(data_row, map_image_path=None):
     can.setFont("Japanese", 10)
     
     # 座標指定 (x, y) ※template.pdfに合わせて調整してください
-    can.drawString(150, 695, str(data_row.get('report_date', '')))
-    can.drawString(350, 695, str(data_row.get('reporter', '')))
-    can.drawString(150, 665, str(data_row.get('branch_name', '')))
-    can.drawString(150, 640, str(data_row.get('customer_name', '')))
-    can.drawString(150, 615, str(data_row.get('address', '')))
-    can.drawString(150, 590, str(data_row.get('content', '')))
+    can.drawString(500, 750, str(data_row.get('report_date', '')))
+    can.drawString(140, 650, str(data_row.get('reporter', '')))
+    can.drawString(130, 800, str(data_row.get('branch_name', '')))
+    can.drawString(160, 615, str(data_row.get('customer_name', '')))
+    can.drawString(160, 400, str(data_row.get('address', '')))
+    can.drawString(100, 300, str(data_row.get('content', '')))
     
     if map_image_path and os.path.exists(map_image_path):
         can.drawImage(map_image_path, 150, 400, width=150, height=100)
