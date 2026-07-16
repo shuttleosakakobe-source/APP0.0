@@ -21,7 +21,7 @@ with st.form("new_report_form"):
             "content": content
         }
         
-        gas_url = "https://script.google.com/macros/s/AKfycbzrEVPKUHPDOUZVXfj8-3igAcNlglW6KXqKEl5pjbIZi7Y4gHfq4xa520ttwjloScyi/exec"
+        gas_url = "https://script.google.com/macros/s/AKfycbwspFbNGNbaoaWS_Z_YmONjVn8a4mrnXgDVp5-lnRm0K49KiHAtmj-QNnk13ObJ6Csf/exec"
         
         try:
             with st.spinner('作成中...'):
