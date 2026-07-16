@@ -1,5 +1,4 @@
 import streamlit as st
-import html
 import requests
 import io
 import json
@@ -13,8 +12,7 @@ from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
-# ヘッダーを隠す
-st.markdown("<style>header {visibility: hidden; height: 0px !important;}</style>", unsafe_allow_html=True)
+st.markdown("<style>header {visibility: hidden;}</style>", unsafe_allow_html=True)
 
 # PDF生成関数
 def generate_pdf(data_row, map_image_path=None):
@@ -22,101 +20,72 @@ def generate_pdf(data_row, map_image_path=None):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontName='HeiseiKakuGo-W5', fontSize=18, alignment=1, spaceAfter=20)
     normal_style = ParagraphStyle('NormalStyle', parent=styles['Normal'], fontName='HeiseiKakuGo-W5', fontSize=11, leading=16)
     
-    story = []
-    story.append(Paragraph("シャトル神戸中央店 新規営業情報カード", title_style))
-    story.append(Paragraph(f"作成日: {data_row.get('report_date')}  作成者: {data_row.get('reporter')} 様", normal_style))
+    story = [Paragraph("シャトル神戸中央店 新規営業情報カード", ParagraphStyle('Title', parent=styles['Heading1'], fontName='HeiseiKakuGo-W5', fontSize=18, alignment=1))]
+    story.append(Paragraph(f"作成日: {data_row.get('report_date')} 作成者: {data_row.get('reporter')} 様", normal_style))
     story.append(Spacer(1, 10))
     
-    data = [
-        ["加盟店", data_row.get('branch_name', '')],
-        ["お客様名", f"{data_row.get('customer_name', '')} 様"],
-        ["住所", data_row.get('address', '')],
-        ["詳細", data_row.get('content', '')],
-    ]
+    data = [["加盟店", data_row.get('branch_name', '')], ["お客様名", f"{data_row.get('customer_name', '')} 様"], ["住所", data_row.get('address', '')], ["詳細", data_row.get('content', '')]]
     table = Table(data, colWidths=[80, 420])
-    table.setStyle(TableStyle([
-        ('BOX', (0,0), (-1,-1), 1, colors.black),
-        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('PADDING', (0,0), (-1,-1), 10),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('FONTNAME', (0,0), (0,-1), 'HeiseiKakuGo-W5'),
-    ]))
+    table.setStyle(TableStyle([('BOX', (0,0), (-1,-1), 1, colors.black), ('INNERGRID', (0,0), (-1,-1), 0.5, colors.grey), ('PADDING', (0,0), (-1,-1), 10), ('FONTNAME', (0,0), (0,-1), 'HeiseiKakuGo-W5')]))
     story.append(table)
     
     if map_image_path and os.path.exists(map_image_path):
         story.append(Spacer(1, 15))
-        story.append(Paragraph("<b>地図等:</b>", normal_style))
-        img = RLImage(map_image_path, width=300, height=200)
-        story.append(img)
+        story.append(RLImage(map_image_path, width=300, height=200))
         
-    story.append(Spacer(1, 25))
-    story.append(Paragraph("【返信欄】", normal_style))
-    reply_box = Table([["\n\n\n\n"], ["責任者印"]], colWidths=[500], rowHeights=[60, 20])
-    reply_box.setStyle(TableStyle([
-        ('BOX', (0,0), (-1,-1), 1, colors.black),
-        ('VALIGN', (0,1), (0,1), 'MIDDLE'),
-        ('ALIGN', (0,1), (0,1), 'RIGHT'),
-        ('PADDING', (0,0), (-1,-1), 5),
-        ('FONTNAME', (0,1), (0,1), 'HeiseiKakuGo-W5'),
-    ]))
-    story.append(reply_box)
-    
     doc.build(story)
     buffer.seek(0)
     return buffer
 
-# --- 画面表示 ---
+# --- 画面描画 ---
 if not st.session_state.get("login_status", False):
     st.switch_page("views/login.py")
 
-if st.button("⬅️ メニュー画面に戻る", use_container_width=True):
+if st.button("⬅️ メニュー画面に戻る"):
     st.switch_page("views/staff_page.py")
 
 st.markdown("### 📋 新規営業情報カード 入力")
 
-if st.session_state.get('last_submitted_data'):
+# 送信済みデータがあれば表示、なければフォームを表示
+if "submitted_data" in st.session_state:
+    data = st.session_state.submitted_data
     st.success("🎉 送信完了！")
-    pdf_buf = generate_pdf(st.session_state.last_submitted_data, map_image_path="temp_map.png")
-    st.download_button("🖨️ 報告書を印刷・保存", data=pdf_buf, file_name="情報カード.pdf", mime="application/pdf", use_container_width=True)
+    pdf_buf = generate_pdf(data, map_image_path="temp_map.png")
+    st.download_button("🖨️ 報告書を印刷・保存", data=pdf_buf, file_name="情報カード.pdf", mime="application/pdf")
     
-    if st.button("✍️ 続けて作成する", use_container_width=True):
-        st.session_state.last_submitted_data = None
+    if st.button("✍️ 続けて作成する"):
+        del st.session_state.submitted_data
         if os.path.exists("temp_map.png"): os.remove("temp_map.png")
         st.rerun()
 else:
-    with st.form("new_report_form", clear_on_submit=True):
+    with st.form("new_report_form"):
         report_date = st.date_input("作成日", datetime.date.today())
         branch_name = st.text_input("加盟店名")
         customer_name = st.text_input("お客様名")
         address = st.text_input("住所")
         content = st.text_area("詳細")
-        uploaded_file = st.file_uploader("地図等の画像をアップロード", type=['png', 'jpg', 'jpeg'])
+        uploaded_file = st.file_uploader("地図画像", type=['png', 'jpg', 'jpeg'])
         
-        if st.form_submit_button("📮 報告書を送信する", use_container_width=True):
+        if st.form_submit_button("📮 送信する"):
             if uploaded_file:
                 Image.open(uploaded_file).convert("RGB").save("temp_map.png")
             
             payload = {
-                "report_date": str(report_date), 
-                "reporter": st.session_state.get("user_name", "未設定"),
-                "branch_name": branch_name, 
-                "customer_name": customer_name,
-                "address": address, 
-                "content": content
+                "report_date": str(report_date), "reporter": st.session_state.get("user_name", "不明"),
+                "branch_name": branch_name, "customer_name": customer_name,
+                "address": address, "content": content
             }
             
             gas_url = "https://script.google.com/macros/s/（ここにあなたのURL）/exec"
-            
             try:
-                # 文字化けとASCIIエラーを完全に防ぐためrequestsを使用
-                response = requests.post(gas_url, json=payload, timeout=10)
-                if response.status_code == 200:
-                    st.session_state.last_submitted_data = payload
-                    st.rerun()
+                # 送信成功したら session_state に保存してリロード
+                res = requests.post(gas_url, json=payload, timeout=10)
+                if res.status_code == 200:
+                    st.session_state.submitted_data = payload
+                    st.rerun() # ここでのみrerunし、フォームを消して成功画面へ移行
                 else:
-                    st.error(f"送信失敗: {response.status_code}")
+                    st.error("送信失敗")
             except Exception as e:
-                st.error(f"送信エラー: {e}")
+                st.error(f"エラー: {e}")
