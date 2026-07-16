@@ -100,7 +100,7 @@ else:
             gas_url = "https://script.google.com/macros/s/（ここにあなたのURL）/exec"
             
             try:
-                req = urllib.request.Request(gas_url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
+               req = urllib.request.Request(gas_url, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
                 with urllib.request.urlopen(req, timeout=10) as response:
                     st.session_state.last_submitted_data = payload
                     st.rerun()
