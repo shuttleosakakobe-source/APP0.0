@@ -4,6 +4,7 @@ import urllib.request
 import io
 import json
 import datetime
+import os  # osモジュールを忘れずに追加
 from PIL import Image
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
@@ -25,11 +26,9 @@ def generate_pdf(data_row, map_image_path=None):
     
     story = []
     story.append(Paragraph("シャトル神戸中央店 新規営業情報カード", title_style))
-    
     story.append(Paragraph(f"作成日: {data_row.get('report_date')}  作成者: {data_row.get('reporter')} 様", normal_style))
     story.append(Spacer(1, 10))
     
-    # メインテーブル（加盟店を追加）
     data = [
         ["加盟店", data_row.get('branch_name', '')],
         ["お客様名", f"{data_row.get('customer_name', '')} 様"],
@@ -43,14 +42,12 @@ def generate_pdf(data_row, map_image_path=None):
     ]))
     story.append(table)
     
-    # 地図画像
     if map_image_path:
         story.append(Spacer(1, 15))
         story.append(Paragraph("<b>地図等:</b>", normal_style))
         img = RLImage(map_image_path, width=300, height=200)
         story.append(img)
         
-    # 返信欄
     story.append(Spacer(1, 25))
     story.append(Paragraph("【返信欄】", normal_style))
     reply_box = Table([["\n\n\n\n"], ["責任者印"]], colWidths=[500], rowHeights=[60, 20])
@@ -65,9 +62,11 @@ def generate_pdf(data_row, map_image_path=None):
     return buffer
 
 # --- 画面描画 ---
-if not st.session_state.get("login_status", False): st.switch_page("app.py")
+if not st.session_state.get("login_status", False):
+    st.switch_page("app.py")
 
-if st.button("⬅️ メニュー画面に戻る", use_container_width=True): st.switch_page("views/staff_page.py")
+if st.button("⬅️ メニュー画面に戻る", use_container_width=True):
+    st.switch_page("views/staff_page.py")
 
 st.markdown("### 📋 新規営業情報カード 入力")
 
@@ -89,7 +88,8 @@ else:
         uploaded_file = st.file_uploader("地図等の画像をアップロード", type=['png', 'jpg', 'jpeg'])
         
         if st.form_submit_button("📮 報告書を送信する", use_container_width=True):
-            if uploaded_file: Image.open(uploaded_file).save("temp_map.png")
+            if uploaded_file:
+                Image.open(uploaded_file).save("temp_map.png")
             
             payload = {
                 "report_date": str(report_date), "reporter": st.session_state.user_name,
@@ -100,7 +100,7 @@ else:
             gas_url = "https://script.google.com/macros/s/（ここにあなたのURL）/exec"
             
             try:
-               req = urllib.request.Request(gas_url, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
+                req = urllib.request.Request(gas_url, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
                 with urllib.request.urlopen(req, timeout=10) as response:
                     st.session_state.last_submitted_data = payload
                     st.rerun()
