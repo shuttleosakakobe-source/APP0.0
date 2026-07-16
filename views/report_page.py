@@ -24,8 +24,8 @@ def generate_pdf(data_row, map_image_path=None):
     can.drawString(140, 650, str(data_row.get('reporter', '')))
     can.drawString(130, 715, str(data_row.get('branch_name', '')))
     can.drawString(160, 590, str(data_row.get('customer_name', '')))
-    can.drawString(160, 500, str(data_row.get('address', '')))
-    can.drawString(80, 400, str(data_row.get('content', '')))
+    can.drawString(160, 520, str(data_row.get('address', '')))
+    can.drawString(70, 420, str(data_row.get('content', '')))
     
     if map_image_path and os.path.exists(map_image_path):
         can.drawImage(map_image_path, 350, 400, width=150, height=100)
