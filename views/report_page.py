@@ -4,7 +4,7 @@ import urllib.request
 import io
 import json
 import datetime
-import os  # osモジュールを忘れずに追加
+import os
 from PIL import Image
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
@@ -13,6 +13,7 @@ from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
+# ヘッダーを隠す設定
 st.markdown("<style>header {visibility: hidden; height: 0px !important;}</style>", unsafe_allow_html=True)
 
 # PDF生成ロジック
@@ -29,6 +30,7 @@ def generate_pdf(data_row, map_image_path=None):
     story.append(Paragraph(f"作成日: {data_row.get('report_date')}  作成者: {data_row.get('reporter')} 様", normal_style))
     story.append(Spacer(1, 10))
     
+    # テーブルデータ（加盟店を含む）
     data = [
         ["加盟店", data_row.get('branch_name', '')],
         ["お客様名", f"{data_row.get('customer_name', '')} 様"],
@@ -37,8 +39,11 @@ def generate_pdf(data_row, map_image_path=None):
     ]
     table = Table(data, colWidths=[80, 420])
     table.setStyle(TableStyle([
-        ('BOX', (0,0), (-1,-1), 1, colors.black), ('INNERGRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('PADDING', (0,0), (-1,-1), 10), ('VALIGN', (0,0), (-1,-1), 'TOP'), ('FONTNAME', (0,0), (0,-1), 'HeiseiKakuGo-W5'),
+        ('BOX', (0,0), (-1,-1), 1, colors.black),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('PADDING', (0,0), (-1,-1), 10),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('FONTNAME', (0,0), (0,-1), 'HeiseiKakuGo-W5'),
     ]))
     story.append(table)
     
@@ -52,8 +57,11 @@ def generate_pdf(data_row, map_image_path=None):
     story.append(Paragraph("【返信欄】", normal_style))
     reply_box = Table([["\n\n\n\n"], ["責任者印"]], colWidths=[500], rowHeights=[60, 20])
     reply_box.setStyle(TableStyle([
-        ('BOX', (0,0), (-1,-1), 1, colors.black), ('VALIGN', (0,1), (0,1), 'MIDDLE'),
-        ('ALIGN', (0,1), (0,1), 'RIGHT'), ('PADDING', (0,0), (-1,-1), 5), ('FONTNAME', (0,1), (0,1), 'HeiseiKakuGo-W5'),
+        ('BOX', (0,0), (-1,-1), 1, colors.black),
+        ('VALIGN', (0,1), (0,1), 'MIDDLE'),
+        ('ALIGN', (0,1), (0,1), 'RIGHT'),
+        ('PADDING', (0,0), (-1,-1), 5),
+        ('FONTNAME', (0,1), (0,1), 'HeiseiKakuGo-W5'),
     ]))
     story.append(reply_box)
     
@@ -62,8 +70,9 @@ def generate_pdf(data_row, map_image_path=None):
     return buffer
 
 # --- 画面描画 ---
+# ログインしていない場合はログイン画面へ遷移
 if not st.session_state.get("login_status", False):
-    st.switch_page("app.py")
+    st.switch_page("views/login.py")
 
 if st.button("⬅️ メニュー画面に戻る", use_container_width=True):
     st.switch_page("views/staff_page.py")
@@ -74,6 +83,7 @@ if st.session_state.get('last_submitted_data'):
     st.success("🎉 送信完了！")
     pdf_buf = generate_pdf(st.session_state.last_submitted_data, map_image_path="temp_map.png" if os.path.exists("temp_map.png") else None)
     st.download_button("🖨️ 報告書を印刷・保存", data=pdf_buf, file_name="情報カード.pdf", mime="application/pdf", use_container_width=True)
+    
     if st.button("✍️ 続けて作成する", use_container_width=True):
         st.session_state.last_submitted_data = None
         if os.path.exists("temp_map.png"): os.remove("temp_map.png")
@@ -92,14 +102,18 @@ else:
                 Image.open(uploaded_file).save("temp_map.png")
             
             payload = {
-                "report_date": str(report_date), "reporter": st.session_state.user_name,
-                "branch_name": branch_name, "customer_name": customer_name,
-                "address": address, "content": content
+                "report_date": str(report_date), 
+                "reporter": st.session_state.user_name,
+                "branch_name": branch_name, 
+                "customer_name": customer_name,
+                "address": address, 
+                "content": content
             }
             # ※ここに正しいGASのURLを貼り付けてください
             gas_url = "https://script.google.com/macros/s/（ここにあなたのURL）/exec"
             
             try:
+                # ensure_ascii=False で文字化け回避
                 req = urllib.request.Request(gas_url, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
                 with urllib.request.urlopen(req, timeout=10) as response:
                     st.session_state.last_submitted_data = payload
