@@ -2,6 +2,10 @@ import streamlit as st
 import requests
 import datetime
 
+# 戻るボタンをサイドバーに設置
+if st.sidebar.button("⬅️ メインメニューに戻る"):
+    st.switch_page("app.py")
+
 # 検索結果保持用
 if "search_data" not in st.session_state:
     st.session_state.search_data = {}
@@ -16,7 +20,7 @@ def fetch_data():
 st.markdown("### 📋 帳票作成センター")
 card_type = st.selectbox("作成するカードを選択", ["新規営業", "ケアサービス紹介"])
 
-# ログインユーザー名（※環境変数等から取得。ここではテスト用として表示）
+# ログインユーザー名の仮置き（本来は認証処理で取得）
 reporter_name = "山田太郎" 
 
 with st.form("main_form"):
