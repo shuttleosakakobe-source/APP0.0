@@ -21,7 +21,7 @@ def fetch_data():
 
 card_type = st.selectbox("作成するカードを選択", ["新規営業", "ケアサービス紹介"])
 
-# ログインユーザー名（※Session State等から取得する場合は書き換えてください）
+# ログイン画面で保持したユーザー名を取得（未入力時はデフォルト値）
 reporter_name = st.session_state.get("user_name", "山田太郎")
 
 with st.form("main_form"):
