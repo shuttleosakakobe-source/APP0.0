@@ -100,7 +100,6 @@ if card_type == "新規営業":
     with st.form(key="form_singi"):
         st.subheader("💼 新規営業 カード入力")
         
-        # デフォルトで加盟店名は空欄にする
         branch_name = st.text_input("加盟店名", value="")
         customer_name = st.text_input("お客様名")
         address = st.text_input("住所")
@@ -134,7 +133,6 @@ else:
 
     # 📝 詳細入力フォーム
     with st.form(key="form_care"):
-        # 検索された場合のみ検索結果の店舗名を表示、初期表示は空欄（""）
         searched_branch = st.session_state.search_data.get("branch", "")
         
         branch_name = st.text_input("加盟店名", value=searched_branch)
@@ -155,7 +153,7 @@ else:
         submit_pdf = st.form_submit_button("🖨️ 送信してPDFを作成", type="primary", use_container_width=True)
 
 # ----------------------------------------------------
-# 4. PDF送信処理
+# 4. PDF送信処理（安全なレスポンス検証付き）
 # ----------------------------------------------------
 if submit_pdf:
     if not customer_name:
@@ -186,17 +184,25 @@ if submit_pdf:
                 })
             
             try:
-                gas_url = "https://script.google.com/macros/s/AKfycby9VBvs7I313uzYi3nq023TREcFvRxEVMA2yOdIMSPHPNu8jYpYCs7e64GU7jT5m26Z/exec"
-                res = requests.post(gas_url, json=payload, timeout=15)
-                res_data = res.json()
+                gas_url = "https://script.google.com/macros/s/AKfycbxVEQel93jkaz-aNdNlzZoGcGB14818MjeVbCs0JLTCt1VVuKFLRSKoEja2IVqVw-y0/exec"
                 
-                if "pdf_url" in res_data:
-                    st.success("🎉 PDF作成完了！")
-                    st.markdown(f"### [🖨️ PDFを開く]({res_data['pdf_url']})")
-                else:
-                    st.error("PDFの生成に失敗しました。レスポンスを確認してください。")
+                # リダイレクトを自動追従するように設定
+                res = requests.post(gas_url, json=payload, timeout=25, allow_redirects=True)
+                
+                try:
+                    res_data = res.json()
+                    if "pdf_url" in res_data:
+                        st.success("🎉 PDF作成完了！")
+                        st.markdown(f"### [🖨️ PDFを開く]({res_data['pdf_url']})")
+                    else:
+                        st.error(f"PDF生成エラー: {res_data.get('error', '不明なエラーが発生しました。')}")
+                except ValueError:
+                    # JSONに変換できないエラー（HTMLレスポンスなど）
+                    st.error("GASからのレスポンスがJSON形式ではありません。GASのデプロイ権限（『全員』アクセス許可）またはGAS側のコードエラーを確認してください。")
+                    st.text_area("受信したレスポンス内容（デバッグ用）", res.text, height=150)
+
             except Exception as e:
-                st.error(f"送信中にエラーが発生しました: {e}")
+                st.error(f"通信エラーが発生しました: {e}")
 
 st.markdown("---")
 
