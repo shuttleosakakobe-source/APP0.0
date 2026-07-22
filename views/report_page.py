@@ -184,7 +184,7 @@ if submit_pdf:
                 })
             
             try:
-                gas_url = "https://script.google.com/macros/s/AKfycbxVEQel93jkaz-aNdNlzZoGcGB14818MjeVbCs0JLTCt1VVuKFLRSKoEja2IVqVw-y0/exec"
+                gas_url = "https://script.google.com/macros/s/AKfycbz6tkcCpp5_FsDeC2-btZ5M6p4HfWTx7CfxKQF7e1L1HuUhheTqlHK4RuDB0U-8kzxc/exec"
                 
                 # リダイレクトを自動追従するように設定
                 res = requests.post(gas_url, json=payload, timeout=25, allow_redirects=True)
