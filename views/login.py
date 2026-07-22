@@ -24,24 +24,34 @@ u_email = st.text_input("メールアドレス").strip()
 u_pass = st.text_input("パスワード", type="password").strip()
 
 if st.button("ログイン", type="primary", use_container_width=True):
-    master_url = "https://docs.google.com/spreadsheets/d/1-1zvVWOfHsXFWdUoAZwOUnxo1BgSdKMG6GubpRTVqeM/export?format=csv&gid=0"
-    raw = load_sheet_data(master_url)
-    if raw:
-        h_cols = [col.strip() for col in raw[0]]
-        matched_row = None
-        for row in raw[1:]:
-            if len(row) < 6: continue
-            row_dict = dict(zip(h_cols, row))
-            if str(row_dict.get('メールアドレス')).strip() == u_email and str(row_dict.get('パスワード')).strip() == u_pass:
-                matched_row = row
-                break
-        
-        if matched_row:
-            user_dict = dict(zip(h_cols, matched_row))
-            st.session_state.user_name = user_dict.get('担当者名', '')
-            st.session_state.user_branch = user_dict.get('拠点', '神戸中央店')
-            st.session_state.user_role = str(matched_row[5]).strip()
-            st.session_state.login_status = True
-            st.switch_page("views/staff_page.py")
-        else:
-            st.error("メールアドレスまたはパスワードが違います。")
+    if not u_email or not u_pass:
+        st.warning("メールアドレスとパスワードを入力してください。")
+    else:
+        # ぐるぐるローディング表示を追加
+        with st.spinner("認証中..."):
+            master_url = "https://docs.google.com/spreadsheets/d/1-1zvVWOfHsXFWdUoAZwOUnxo1BgSdKMG6GubpRTVqeM/export?format=csv&gid=0"
+            raw = load_sheet_data(master_url)
+            
+            if raw:
+                h_cols = [col.strip() for col in raw[0]]
+                matched_row = None
+                for row in raw[1:]:
+                    if len(row) < 6: continue
+                    row_dict = dict(zip(h_cols, row))
+                    if str(row_dict.get('メールアドレス')).strip() == u_email and str(row_dict.get('パスワード')).strip() == u_pass:
+                        matched_row = row
+                        break
+                
+                if matched_row:
+                    user_dict = dict(zip(h_cols, matched_row))
+                    st.session_state.user_name = user_dict.get('担当者名', '')
+                    st.session_state.user_branch = user_dict.get('拠点', '神戸中央店')
+                    st.session_state.user_role = str(matched_row[5]).strip()
+                    st.session_state.login_status = True
+                    
+                    st.success("ログイン成功！移動します...")
+                    st.switch_page("views/staff_page.py")
+                else:
+                    st.error("メールアドレスまたはパスワードが違います。")
+            else:
+                st.error("スプレッドシートのデータ取得に失敗しました。時間をおいて再試行してください。")
