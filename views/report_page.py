@@ -45,7 +45,6 @@ def fetch_data():
     """シャトルコードでスプレッドシートを検索し、一致する行のデータを取得"""
     code = st.session_state.get("shuttle_input", "").strip()
     if code:
-        # スプレッドシートの該当シート (gid=127347205) をCSV形式で取得
         sheet_id = "1-1zvVWOfHsXFWdUoAZwOUnxo1BgSdKMG6GubpRTVqeM"
         gid = "127347205"
         csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
@@ -54,18 +53,17 @@ def fetch_data():
         found = False
         
         if rows:
-            # 各行を走査（B列がシャトルコード）
             for row in rows:
                 if len(row) >= 5:
-                    # B列（インデックス1）がシャトルコードと一致するか判定
                     sheet_shuttle_code = row[1].strip()
                     if sheet_shuttle_code == code:
                         raw_branch = row[0].strip()  # A列：加盟店名
-                        # 「D-」が含まれている場合は除外して表示
-                        cleaned_branch = raw_branch.replace("D-", "").strip()
+                        
+                        # 全角「Ｄ－」「Ｄ-」半角「D-」「Dー」など表記揺れも含めて徹底除去
+                        cleaned_branch = raw_branch.replace("Ｄ－", "").replace("Ｄ-", "").replace("D-", "").replace("Dー", "").strip()
                         
                         st.session_state.search_data = {
-                            "branch": cleaned_branch,            # A列（D-を除去）
+                            "branch": cleaned_branch,            # A列（D-除去後）
                             "customer": row[2].strip(),          # C列：お客様名
                             "dealer_code": row[4].strip()        # E列：加盟店コード
                         }
@@ -75,11 +73,9 @@ def fetch_data():
         if not found:
             st.session_state.search_data = {}
             st.warning(f"シャトルコード「{code}」に該当するデータが見つかりませんでした。")
-            
-    st.session_state["search_executed"] = True
 
 # ----------------------------------------------------
-# 3. 画面レイアウト・フォーム構成
+# 3. 画面レイアウト
 # ----------------------------------------------------
 st.title("📝 ３店共通情報カード（報告）")
 st.write(f"担当者: **{user_name}** ({user_branch})")
@@ -88,15 +84,15 @@ card_type = st.selectbox("作成するカードを選択", ["新規営業", "ケ
 
 st.markdown("---")
 
-# フォーム全体の作成
-with st.form(key="report_main_form"):
-    report_date = st.date_input("作成日", datetime.date.today())
-    reporter = st.text_input("作成者名", value=user_name)
-    
-    st.markdown("---")
-    
-    # --- A. 新規営業の場合の入力項目 ---
-    if card_type == "新規営業":
+# 基本情報（共通）
+report_date = st.date_input("作成日", datetime.date.today())
+reporter = st.text_input("作成者名", value=user_name)
+
+st.markdown("---")
+
+# --- A. 新規営業の場合 ---
+if card_type == "新規営業":
+    with st.form(key="form_singi"):
         st.subheader("💼 新規営業 カード入力")
         branch_name = st.text_input("加盟店名", value=user_branch)
         customer_name = st.text_input("お客様名")
@@ -104,23 +100,33 @@ with st.form(key="report_main_form"):
         content = st.text_area("詳細")
         image_url = st.text_input("画像URL")
         
-        # ケアサービス専用変数のダミー
-        shuttle_code = ""
-        dealer_code = ""
-        phone = ""
-        contact_person = ""
-        service_type = []
-        maker = ""
-        has_cleaning_function = "無"
-        year = ""
+        submit_pdf = st.form_submit_button("🖨️ 送信してPDFを作成", type="primary", use_container_width=True)
 
-    # --- B. ケアサービス紹介の場合の入力項目 ---
-    else:
-        st.subheader("🏥 ケアサービス紹介 カード入力")
-        
-        shuttle_code = st.text_input("シャトルコード（入力後に画面下の「検索実行」ボタンを押してください）", key="shuttle_input")
-        
-        # スプレッドシートからの検索結果を初期値にセット
+    # 送信時のデータ準備（ダミー）
+    shuttle_code = ""
+    dealer_code = ""
+    phone = ""
+    contact_person = ""
+    service_type = []
+    maker = ""
+    has_cleaning_function = "無"
+    year = ""
+
+# --- B. ケアサービス紹介の場合 ---
+else:
+    st.subheader("🏥 ケアサービス紹介 カード入力")
+    
+    # 🔍 シャトルコード入力＆検索エリア（横並び配置）
+    with st.form(key="search_form"):
+        col_search1, col_search2 = st.columns([3, 1])
+        with col_search1:
+            shuttle_code = st.text_input("シャトルコード", key="shuttle_input", placeholder="コードを入力してください")
+        with col_search2:
+            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True) # 位置あわせ用余白
+            search_submitted = st.form_submit_button("🔍 検索", on_click=fetch_data, use_container_width=True)
+
+    # 📝 詳細入力フォーム
+    with st.form(key="form_care"):
         branch_name = st.text_input("加盟店名", value=st.session_state.search_data.get("branch", user_branch))
         dealer_code = st.text_input("加盟店コード", value=st.session_state.search_data.get("dealer_code", ""))
         customer_name = st.text_input("お客様名", value=st.session_state.search_data.get("customer", ""))
@@ -134,25 +140,12 @@ with st.form(key="report_main_form"):
         has_cleaning_function = st.selectbox("お掃除機能", ["無", "有"])
         year = st.text_input("年式")
         
-        # 新規営業専用変数のダミー
         image_url = ""
-
-    st.markdown("---")
-    
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        # シャトルコード検索ボタン (フォーム用)
-        if card_type == "ケアサービス紹介":
-            search_submitted = st.form_submit_button("🔍 シャトルコードで検索実行", on_click=fetch_data)
-        else:
-            search_submitted = False
-            
-    with col_btn2:
-        # PDF送信ボタン
-        submit_pdf = st.form_submit_button("🖨️ 送信してPDFを作成", type="primary")
+        
+        submit_pdf = st.form_submit_button("🖨️ 送信してPDFを作成", type="primary", use_container_width=True)
 
 # ----------------------------------------------------
-# 4. フォーム送信後の処理
+# 4. PDF送信処理
 # ----------------------------------------------------
 if submit_pdf:
     if not customer_name:
