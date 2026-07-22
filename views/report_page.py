@@ -2,9 +2,11 @@ import streamlit as st
 import requests
 import datetime
 
-# 戻るボタンをサイドバーに設置
+# サイドバーに戻るボタンを配置（スタッフメニューページへ戻る）
 if st.sidebar.button("⬅️ メインメニューに戻る"):
-    st.switch_page("app.py")
+    st.switch_page("views/staff_page.py")
+
+st.markdown("### 📋 帳票作成センター")
 
 # 検索結果保持用
 if "search_data" not in st.session_state:
@@ -13,15 +15,14 @@ if "search_data" not in st.session_state:
 def fetch_data():
     code = st.session_state.shuttle_input
     if code:
-        gas_url = "https://script.google.com/macros/s/AKfycbxVEQel93jkaz-aNdNlzZoGcGB14818MjeVbCs0JLTCt1VVuKFLRSKoEja2IVqVw-y0/exec"
+        gas_url = "https://script.google.com/macros/s/AKfycby9VBvs7I313uzYi3nq023TREcFvRxEVMA2yOdIMSPHPNu8jYpYCs7e64GU7jT5m26Z/exec"
         res = requests.get(gas_url, params={"code": code})
         st.session_state.search_data = res.json()
 
-st.markdown("### 📋 帳票作成センター")
 card_type = st.selectbox("作成するカードを選択", ["新規営業", "ケアサービス紹介"])
 
-# ログインユーザー名の仮置き（本来は認証処理で取得）
-reporter_name = "山田太郎" 
+# ログインユーザー名（※Session State等から取得する場合は書き換えてください）
+reporter_name = st.session_state.get("user_name", "山田太郎")
 
 with st.form("main_form"):
     report_date = st.date_input("作成日", datetime.date.today())
@@ -55,13 +56,30 @@ with st.form("main_form"):
         year = st.text_input("年式")
 
     if st.form_submit_button("送信してPDFを作成"):
-        payload = {"card_type": card_type, "report_date": str(report_date), "reporter": reporter, "branch_name": branch_name, "customer_name": customer_name, "address": address, "content": content}
+        payload = {
+            "card_type": card_type,
+            "report_date": str(report_date),
+            "reporter": reporter,
+            "branch_name": branch_name,
+            "customer_name": customer_name,
+            "address": address,
+            "content": content
+        }
         if card_type == "新規営業":
             payload.update({"image_url": image_url})
         elif card_type == "ケアサービス紹介":
-            payload.update({"shuttle_code": shuttle_code, "dealer_code": dealer_code, "phone": phone, "contact_person": contact_person, "service_type": ", ".join(service_type), "maker": maker, "has_cleaning_function": has_cleaning_function, "year": year})
+            payload.update({
+                "shuttle_code": shuttle_code,
+                "dealer_code": dealer_code,
+                "phone": phone,
+                "contact_person": contact_person,
+                "service_type": ", ".join(service_type),
+                "maker": maker,
+                "has_cleaning_function": has_cleaning_function,
+                "year": year
+            })
         
-        gas_url = "https://script.google.com/macros/s/AKfycbxVEQel93jkaz-aNdNlzZoGcGB14818MjeVbCs0JLTCt1VVuKFLRSKoEja2IVqVw-y0/exec"
+        gas_url = "https://script.google.com/macros/s/AKfycby9VBvs7I313uzYi3nq023TREcFvRxEVMA2yOdIMSPHPNu8jYpYCs7e64GU7jT5m26Z/exec"
         res = requests.post(gas_url, json=payload)
         st.success("🎉 PDF作成完了！")
         st.markdown(f"### [🖨️ PDFを開く]({res.json()['pdf_url']})")
