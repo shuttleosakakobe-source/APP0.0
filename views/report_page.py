@@ -59,11 +59,16 @@ def fetch_data():
                     if sheet_shuttle_code == code:
                         raw_branch = row[0].strip()  # A列：加盟店名
                         
-                        # 全角「Ｄ－」「Ｄ-」半角「D-」「Dー」など表記揺れも含めて徹底除去
-                        cleaned_branch = raw_branch.replace("Ｄ－", "").replace("Ｄ-", "").replace("D-", "").replace("Dー", "").strip()
+                        # 「D-」「Ｄ－」「神戸中央店」を除去
+                        cleaned_branch = (
+                            raw_branch
+                            .replace("Ｄ－", "").replace("Ｄ-", "").replace("D-", "").replace("Dー", "")
+                            .replace("神戸中央店", "")
+                            .strip()
+                        )
                         
                         st.session_state.search_data = {
-                            "branch": cleaned_branch,            # A列（D-除去後）
+                            "branch": cleaned_branch,            # A列（D-・神戸中央店 除去後）
                             "customer": row[2].strip(),          # C列：お客様名
                             "dealer_code": row[4].strip()        # E列：加盟店コード
                         }
@@ -94,7 +99,9 @@ st.markdown("---")
 if card_type == "新規営業":
     with st.form(key="form_singi"):
         st.subheader("💼 新規営業 カード入力")
-        branch_name = st.text_input("加盟店名", value=user_branch)
+        
+        # デフォルトで加盟店名は空欄にする
+        branch_name = st.text_input("加盟店名", value="")
         customer_name = st.text_input("お客様名")
         address = st.text_input("住所")
         content = st.text_area("詳細")
@@ -127,7 +134,10 @@ else:
 
     # 📝 詳細入力フォーム
     with st.form(key="form_care"):
-        branch_name = st.text_input("加盟店名", value=st.session_state.search_data.get("branch", user_branch))
+        # 検索された場合のみ検索結果の店舗名を表示、初期表示は空欄（""）
+        searched_branch = st.session_state.search_data.get("branch", "")
+        
+        branch_name = st.text_input("加盟店名", value=searched_branch)
         dealer_code = st.text_input("加盟店コード", value=st.session_state.search_data.get("dealer_code", ""))
         customer_name = st.text_input("お客様名", value=st.session_state.search_data.get("customer", ""))
         
