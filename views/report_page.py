@@ -29,7 +29,7 @@ if "search_data" not in st.session_state:
     st.session_state.search_data = {}
 
 # ----------------------------------------------------
-# 2. データ取得用の補助関数
+# 2. データ取得用の補助関数（スプレッドシートから読み込み）
 # ----------------------------------------------------
 def load_sheet_data(custom_url):
     try:
@@ -42,18 +42,40 @@ def load_sheet_data(custom_url):
         return None
 
 def fetch_data():
-    """シャトルコード検索コールバック関数"""
+    """シャトルコードでスプレッドシートを検索し、一致する行のデータを取得"""
     code = st.session_state.get("shuttle_input", "").strip()
     if code:
-        try:
-            gas_url = "https://script.google.com/macros/s/AKfycby9VBvs7I313uzYi3nq023TREcFvRxEVMA2yOdIMSPHPNu8jYpYCs7e64GU7jT5m26Z/exec"
-            res = requests.get(gas_url, params={"code": code}, timeout=10)
-            if res.status_code == 200:
-                st.session_state.search_data = res.json()
-            else:
-                st.error("データの取得に失敗しました。")
-        except Exception as e:
-            st.error(f"通信エラーが発生しました: {e}")
+        # スプレッドシートの該当シート (gid=127347205) をCSV形式で取得
+        sheet_id = "1-1zvVWOfHsXFWdUoAZwOUnxo1BgSdKMG6GubpRTVqeM"
+        gid = "127347205"
+        csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+        
+        rows = load_sheet_data(csv_url)
+        found = False
+        
+        if rows:
+            # 各行を走査（B列がシャトルコード）
+            for row in rows:
+                if len(row) >= 5:
+                    # B列（インデックス1）がシャトルコードと一致するか判定
+                    sheet_shuttle_code = row[1].strip()
+                    if sheet_shuttle_code == code:
+                        raw_branch = row[0].strip()  # A列：加盟店名
+                        # 「D-」が含まれている場合は除外して表示
+                        cleaned_branch = raw_branch.replace("D-", "").strip()
+                        
+                        st.session_state.search_data = {
+                            "branch": cleaned_branch,            # A列（D-を除去）
+                            "customer": row[2].strip(),          # C列：お客様名
+                            "dealer_code": row[4].strip()        # E列：加盟店コード
+                        }
+                        found = True
+                        break
+        
+        if not found:
+            st.session_state.search_data = {}
+            st.warning(f"シャトルコード「{code}」に該当するデータが見つかりませんでした。")
+            
     st.session_state["search_executed"] = True
 
 # ----------------------------------------------------
@@ -82,7 +104,7 @@ with st.form(key="report_main_form"):
         content = st.text_area("詳細")
         image_url = st.text_input("画像URL")
         
-        # ケアサービス専用変数のダミー（送信時のKeyError防止）
+        # ケアサービス専用変数のダミー
         shuttle_code = ""
         dealer_code = ""
         phone = ""
@@ -96,12 +118,13 @@ with st.form(key="report_main_form"):
     else:
         st.subheader("🏥 ケアサービス紹介 カード入力")
         
-        # シャトルコード入力と検索説明
         shuttle_code = st.text_input("シャトルコード（入力後に画面下の「検索実行」ボタンを押してください）", key="shuttle_input")
         
+        # スプレッドシートからの検索結果を初期値にセット
         branch_name = st.text_input("加盟店名", value=st.session_state.search_data.get("branch", user_branch))
         dealer_code = st.text_input("加盟店コード", value=st.session_state.search_data.get("dealer_code", ""))
         customer_name = st.text_input("お客様名", value=st.session_state.search_data.get("customer", ""))
+        
         address = st.text_input("住所")
         phone = st.text_input("電話番号")
         contact_person = st.text_input("ご担当者様")
