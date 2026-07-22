@@ -29,7 +29,8 @@ def get_kobe_campaign_info():
     if rows:
         if len(rows) >= 2 and len(rows[1]) >= 5:
             val_e2 = rows[1][4].strip()
-            if val_e2: campaign_name = val_e2
+            if val_e2: 
+                campaign_name = val_e2
         for row in rows:
             if len(row) >= 2 and row[0].strip() == "神戸中央店":
                 form_url = row[1].strip()
@@ -44,18 +45,22 @@ def get_kobe_user_maintenance_url(user_name):
     rows = load_sheet_data(url)
     if rows and len(rows) >= 2:
         header = [col.strip() for col in rows[0]]
-        try: name_idx = header.index("担当者名")
-        except ValueError: name_idx = 1
+        try: 
+            name_idx = header.index("担当者名")
+        except ValueError: 
+            name_idx = 1
         for row in rows[1:]:
             if len(row) > name_idx:
                 sheet_name_val = row[name_idx].strip()
                 if user_name in sheet_name_val or sheet_name_val in user_name:
-                    if len(row) >= 5: return row[4].strip()
+                    if len(row) >= 5: 
+                        return row[4].strip()
     return "#"
 
 def _get_base64_img(file_name):
     if os.path.exists(file_name):
-        with open(file_name, "rb") as f: return base64.b64encode(f.read()).decode()
+        with open(file_name, "rb") as f: 
+            return base64.b64encode(f.read()).decode()
     return None
 
 def get_img_html(file_name, emoji, width="100%"):
@@ -67,11 +72,11 @@ def get_img_html(file_name, emoji, width="100%"):
 
 # --- 画面表示処理 ---
 if not st.session_state.get("login_status", False):
-    st.warning("ログインしてください。")
-    st.switch_page("app.py")
+    st.warning("ログインが必要です。ログイン画面に移動します。")
+    st.switch_page("views/login.py")  # app.py ではなくログインビューへリダイレクト
 else:
-    user_name = st.session_state.user_name
-    user_branch = st.session_state.user_branch
+    user_name = st.session_state.get("user_name", "ゲスト")
+    user_branch = st.session_state.get("user_branch", "所属なし")
 
     st.markdown("""
         <style>
@@ -91,8 +96,11 @@ else:
         st.write("### 🏢 メニュー（神戸中央店）")
 
         maint_input_url = "https://docs.google.com/forms/d/e/1FAIpQLSc4E3L_UJkVxMMSTOYgcw3SJyoBixHoJfhe0WC-x1wbK6lsHw/viewform"
-        maint_confirm_url = get_kobe_user_maintenance_url(user_name)
-        campaign_name, campaign_url = get_kobe_campaign_info()
+        
+        # スプレッドシート読み込み時のチラつきを抑えるローディング枠
+        with st.spinner("メニューデータを読み込み中..."):
+            maint_confirm_url = get_kobe_user_maintenance_url(user_name)
+            campaign_name, campaign_url = get_kobe_campaign_info()
 
         b1 = get_img_html("3.png", "📄")
         b2 = get_img_html("4.png", "📋")
@@ -131,4 +139,7 @@ else:
     st.write("---")
     if st.button("🚪 ログアウト", use_container_width=True):
         st.session_state.login_status = False
-        st.switch_page("app.py")
+        # セッション状態をきれいに初期化
+        for key in ["user_name", "user_branch", "user_role", "last_submitted_data"]:
+            st.session_state.pop(key, None)
+        st.switch_page("views/login.py")
